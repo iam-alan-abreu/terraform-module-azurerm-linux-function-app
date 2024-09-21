@@ -1,0 +1,38 @@
+# PR will run Static Code Analysis / Tag Version
+pr:
+  - main
+# CI Triggers will run for Versioning and Tagging
+trigger:
+  - main
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  - group: 'iac-ssh-connection'  # The variable group in the Azure Devops library 
+  
+resources:
+  repositories:
+  - repository: tools
+    type: git
+    name: Tecnologia_da_Informação/devops-tools
+    ref: main
+
+stages:
+  - stage: QualityCheckStage
+    displayName: Quality Check Stage
+    condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
+    jobs:
+      - template: templates/terraform-module/quality-job.yml@tools
+  - stage: security_lint
+    displayName: Static Code Analysis with Checkov
+    # Only run during Pull Request
+    condition: and(succeeded(), eq(variables['Build.Reason'], 'PullRequest'))
+    jobs:
+      - template: templates/terraform-module/checkov-job.yml@tools
+                  
+  - stage: tag_module
+    displayName: Tag, Version, and Release
+    # Only checking for main branch at this time.
+    condition: and(in(variables['Build.Reason'], 'IndividualCI', 'BatchedCI'), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+    jobs:
+      - template: templates/terraform-module/git-version.yml@tools
